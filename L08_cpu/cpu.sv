@@ -41,7 +41,7 @@ assign ir_addr = ir_out[4:0];
 
 counter  pc     ( .count  (pc_addr),
                   .data (ir_addr),
-                  .clk  (clk),
+                  .clk  (~cntrl_clk),
                   .load (load_pc),
                   .enable (inc_pc),
                   .rst_

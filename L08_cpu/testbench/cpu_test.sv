@@ -103,9 +103,18 @@ module cpu_test;
   // (5) MONITOR SETUP (formatting, logging helpers)
   //     (This is “monitor infrastructure”; actual checking is later.)
   //============================================================
+  
+    initial begin
+    rst_  = 1'b0;   // hold in reset at t=0
+    count = 4'b0;
+    end
+  
   initial
     $timeformat(-9, 1, " ns", 12); // Print %t in ns with 1 decimal.
-
+      initial begin
+    rst_  = 1'b0;   // hold in reset at t=0
+    count = 4'b0;
+    end
 
   //============================================================
   // (4) TEST SELECTION + (5) STIMULUS/DRIVE: choose test, load program,
@@ -124,7 +133,7 @@ module cpu_test;
       $display("");
       $display("Enter ' deposit test_number # ; run' \n");
 
-      test_number = 1;          // Default if user doesn’t change it.
+//      test_number = 1;          // Default if user doesn’t change it.
       // $stop;                    // Pause sim here: user edits test_number, then continues.
 
       test_number = 1; // default
@@ -209,17 +218,29 @@ module cpu_test;
         //---- (5) Stimulus step: build file name and preload DUT memory ----
         // Creates "CPUtest1.dat", "CPUtest2.dat", etc. using ASCII math.
         testfile = { "CPUtest", 8'h30 + test_number[7:0], ".dat" };
-
+       
         // Loads program bits into the DUT’s internal memory array (hierarchical reference).
         // $readmemb(testfile, cpu1.mem1.memory);
 
         //---- (3) Reset sequencing: drive reset around clock edges ----
         // NOTE: This is “reset generation” in practice, but kept inside stimulus.
-        rst_ = 1;                                // Deassert reset first (depending on design).
-        repeat (2) @(negedge master_clk);
-        rst_ = 0;                                // Assert active-low reset.
-        repeat (2) @(negedge master_clk);
-        rst_ = 1;                                // Release reset -> CPU starts executing.
+        // rst_ = 1;                                // Deassert reset first (depending on design).
+        // repeat (2) @(negedge master_clk);
+        // rst_ = 0;                                // Assert active-low reset.
+        // repeat (2) @(negedge master_clk);
+        // rst_ = 1;                                // Release reset -> CPU starts executing.
+
+        repeat (4) @(negedge master_clk);
+        rst_ = 1'b1;   // release reset -> CPU starts executing
+
+
+
+
+
+
+
+
+
 
         //---- (5) Monitor header ----
         $display("     TIME       PC    INSTR    OP   ADR   DATA\n");
@@ -236,9 +257,9 @@ module cpu_test;
             #(`PERIOD/2);                        // Wait half period to sample stable values.
             topcode = cpu1.opcode;               // Capture opcode for name() printing.
 
-            $display("%t    %h    %s      %h    %h     %h     %h",
+            $display("%t    %h    %s      %h    %h     %h    ",
                      $time, cpu1.pc_addr, topcode.name(), cpu1.opcode,
-                     cpu1.addr, cpu1.alu_out, cpu1.data_out);
+                     cpu1.addr, cpu1.data_out);
 
             // Special-case extra print for Fibonacci program.
             if ((test_number == 3) && (topcode == JMP))
@@ -250,7 +271,7 @@ module cpu_test;
         // (6) CHECKS / SCOREBOARD: decide pass/fail from end state
         //============================================================
         // Here the “golden expectation” is: final PC must match the known halt address.
-        if ( test_number == 1 && cpu1.pc_addr !== 5'h17
+        if ( test_number == 1 && cpu1.pc_addr !== 5'h17 //h17
           || test_number == 2 && cpu1.pc_addr !== 5'h10
           || test_number == 3 && cpu1.pc_addr !== 5'h0C
           || cpu1.pc_addr === 5'hXX ) begin

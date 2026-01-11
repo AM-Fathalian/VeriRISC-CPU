@@ -78,7 +78,7 @@ always_comb	begin
 			mem_rd = ALUOP;
 			load_ac = ALUOP;
 			load_pc = (opcode == JMP);
-			inc_pc = (opcode == JMP);
+			inc_pc =  (opcode == JMP || ((opcode == SKZ) && zero));
 			mem_wr = (opcode == STO);
 		end
 

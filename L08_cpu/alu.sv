@@ -20,9 +20,7 @@ timeprecision 100ps;
 //It is for the zero output signal
 
 always_comb begin 
-	// zero = '0;
-	zero = !(accum == 0);
-
+	zero = ~(|accum);
 end
 
 
