@@ -68,7 +68,37 @@ module cpu_test;
   assign alu_clk   = ~(count == 4'hc);
   // end of clock generator
 
+  // string dat_name;
+  // string run_dir;
+  string dat_dir;   // directory containing .dat files (passed via +dat_dir=...)
+  string dat_name;
+  string dat_full;
+  integer fh;
 
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  function automatic string dirname(input string p);
+    int i;
+    begin
+      for (i = p.len()-1; i >= 0; i--) begin
+        if ((p.getc(i) == 8'h2F) || (p.getc(i) == 8'h5C)) begin // '/' or '\'
+          return (i > 0) ? p.substr(0, i-1) : p;
+        end
+      end
+      return ".";
+    end
+  endfunction
+
+  function automatic string join_path(input string d, input string f);
+    int lastc;
+    begin
+      if (d.len() == 0) return f;
+      lastc = d.getc(d.len()-1);
+      if ((lastc == 8'h2F) || (lastc == 8'h5C)) return {d, f};
+      else return {d, "/", f};
+    end
+  endfunction
+
+  // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   //============================================================
   // (5) MONITOR SETUP (formatting, logging helpers)
   //     (This is “monitor infrastructure”; actual checking is later.)
@@ -124,12 +154,64 @@ module cpu_test;
              end
         endcase
 
+        ///////////////////////////////%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+        dat_name = $sformatf("CPUtest%0d.dat", test_number);
+
+        // Try to resolve the .dat file from several likely directories
+        fh = 0;
+
+        if ($value$plusargs("dat_dir=%s", dat_dir)) begin
+          dat_full = join_path(dat_dir, dat_name);
+          $display("Trying (+dat_dir): %s", dat_full);
+          fh = $fopen(dat_full, "r");
+        end
+
+        if (fh == 0) begin
+          dat_dir  = ".";
+          dat_full = join_path(dat_dir, dat_name);
+          $display("Trying (.)      : %s", dat_full);
+          fh = $fopen(dat_full, "r");
+        end
+
+        if (fh == 0) begin
+          dat_dir  = "..";
+          dat_full = join_path(dat_dir, dat_name);
+          $display("Trying (..)     : %s", dat_full);
+          fh = $fopen(dat_full, "r");
+        end
+
+        if (fh == 0) begin
+          dat_dir  = dirname(`__FILE__); // folder containing cpu_test.sv
+          dat_full = join_path(dat_dir, dat_name);
+          $display("Trying (tb dir) : %s", dat_full);
+          fh = $fopen(dat_full, "r");
+        end
+
+        if (fh == 0) begin
+          dat_dir  = dirname(dirname(`__FILE__)); // parent of testbench folder
+          dat_full = join_path(dat_dir, dat_name);
+          $display("Trying (tb ..)  : %s", dat_full);
+          fh = $fopen(dat_full, "r");
+        end
+
+        if (fh == 0) begin
+          $display("ERROR: Cannot open %s (tried +dat_dir, ., .., tb dir, tb..)", dat_name);
+          $finish;
+        end
+
+        $fclose(fh);
+        $display("Opening OK      : %s", dat_full);
+
+        $readmemb(dat_full, cpu1.mem1.memory);
+
+        /////
         //---- (5) Stimulus step: build file name and preload DUT memory ----
         // Creates "CPUtest1.dat", "CPUtest2.dat", etc. using ASCII math.
         testfile = { "CPUtest", 8'h30 + test_number[7:0], ".dat" };
 
         // Loads program bits into the DUT’s internal memory array (hierarchical reference).
-        $readmemb(testfile, cpu1.mem1.memory);
+        // $readmemb(testfile, cpu1.mem1.memory);
 
         //---- (3) Reset sequencing: drive reset around clock edges ----
         // NOTE: This is “reset generation” in practice, but kept inside stimulus.
